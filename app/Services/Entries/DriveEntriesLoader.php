@@ -111,6 +111,15 @@ class DriveEntriesLoader
             ->firstOrFail();
         $this->builder->where('parent_id', $folder->id);
 
+        // Check if user is admin or superadmin
+        $user = auth()->user();
+        if ($user && ($user->hasPermission('admin') || $user->hasPermission('superadmin'))) {
+            // Admin can view all files in the folder
+            $results = $this->loadEntries();
+            $results['folder'] = $this->setPermissionsOnEntry->execute($folder);
+            return $results;
+        }
+
         if ($this->workspaceId) {
             $this->scopeToOwnerIfCantViewWorkspaceFiles();
         } else {

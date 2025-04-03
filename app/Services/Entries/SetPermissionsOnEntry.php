@@ -46,6 +46,12 @@ class SetPermissionsOnEntry
             return $entry;
         }
 
+        // Grant full permissions to admin and superadmin
+        if ($this->user && ($this->user->hasPermission('admin') || $this->user->hasPermission('superadmin'))) {
+            $entry['permissions'] = array_fill_keys($this->permissionToCheck, true);
+            return $entry;
+        }
+
         $entryPermissions = [];
         $entryUser = Arr::first(
             $entry['users'] ?? [],

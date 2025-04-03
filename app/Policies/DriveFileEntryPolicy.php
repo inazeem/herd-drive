@@ -29,6 +29,11 @@ class DriveFileEntryPolicy extends FileEntryPolicy
         array $entryIds = null,
         int $userId = null,
     ): bool {
+        // Check for admin or superadmin permissions first
+        if ($currentUser && ($currentUser->hasPermission('admin') || $currentUser->hasPermission('superadmin'))) {
+            return true;
+        }
+
         // if we're requesting resources for a particular workspace, let user view the resources
         // as long as they are a member, even without explicit "files.view" permission
         if (!$entryIds && !$this->activeWorkspace->isPersonal()) {
@@ -43,6 +48,11 @@ class DriveFileEntryPolicy extends FileEntryPolicy
         FileEntry $entry,
         ShareableLink $link = null,
     ): bool {
+        // Check for admin or superadmin permissions first
+        if ($user && ($user->hasPermission('admin') || $user->hasPermission('superadmin'))) {
+            return true;
+        }
+
         if (($link = $this->getLinkForRequest($link)) !== null) {
             return $this->authorizeShareableLink($link, $entry);
         }
@@ -65,6 +75,11 @@ class DriveFileEntryPolicy extends FileEntryPolicy
 
     protected function userCan(User $currentUser, string $permission, $entries)
     {
+        // Check for admin or superadmin permissions first
+        if ($currentUser->hasPermission('admin') || $currentUser->hasPermission('superadmin')) {
+            return true;
+        }
+
         $entries = $this->findEntries($entries);
 
         // first run regular checks (user has global permission, or owns entry)
