@@ -477,7 +477,7 @@ return [
                                 'tag' => 'path',
                                 'attr' => [
                                     'd' =>
-                                        'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4V3h10v1H7zm0 14V6h10v12H7zm0 3v-1h10v1H7z',
+                                        'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm-7-.25c.41 0 .75.34.75.75s-.34.75-.75.75-.75-.34-.75-.75.34-.75.75-.75zM19 19H5V5h14v14z',
                                 ],
                             ],
                             [
@@ -503,6 +503,14 @@ return [
                                 ],
                             ],
                         ],
+                    ],
+                    [
+                        'id' => 'root-folders',
+                        'label' => 'Root Folders',
+                        'icon' => 'Folder',
+                        'type' => 'route',
+                        'action' => '/admin/root-folders',
+                        'condition' => 'admin.superadmin',
                     ],
                 ],
                 'positions' => ['admin-sidebar'],

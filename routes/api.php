@@ -13,6 +13,7 @@ use App\Http\Controllers\SharesController;
 use App\Http\Controllers\SpaceUsageController;
 use App\Http\Controllers\StarredEntriesController;
 use App\Http\Controllers\UserFoldersController;
+use App\Http\Controllers\RootFoldersController;
 use Illuminate\Support\Facades\Route;
 
 // prettier-ignore
@@ -102,6 +103,9 @@ Route::group(['prefix' => 'v1'], function() {
 
     // FCM TOKENS
     Route::post('fcm-token', [FcmTokenController::class, 'store']);
+
+    // Root Folders
+    Route::get('root-folders', [RootFoldersController::class, 'index']);
   });
 
   //SHAREABLE LINKS PREVIEW (NO AUTH NEEDED)
