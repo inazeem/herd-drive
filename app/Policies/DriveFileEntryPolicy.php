@@ -85,32 +85,21 @@ class DriveFileEntryPolicy extends FileEntryPolicy
         // first run regular checks (user has global permission, or owns entry)
         if (parent::userCan($currentUser, $permission, $entries)) {
             return true;
+        }
 
-            // if we're not in personal workspace, check if user has permissions via workspace
-        } elseif (!$this->activeWorkspace->isPersonal()) {
-            // first check if user is a member of active workspace
-            if (
-                ($workspaceMember = $this->activeWorkspace->member(
-                    $currentUser->id,
-                )) !== null
-            ) {
-                // then check if user has specified permission for all the entries
-                return $entries->every(function (FileEntry $entry) use (
-                    $permission,
-                    $workspaceMember,
-                ) {
-                    $entryIsInWorkspace =
-                        (int) $entry->workspace_id ===
-                        $this->activeWorkspace->id;
-                    // file entry listing will be restricted in the builder query, no need to error here if user has no permission
-                    if ($permission === 'files.view') {
-                        return $entryIsInWorkspace;
-                    } else {
-                        return $entryIsInWorkspace &&
-                            $workspaceMember->hasPermission($permission);
-                    }
-                });
-            }
+        // if we're not in personal workspace, check if user has permissions via workspace
+        // first check if user is a member of active workspace
+        if (($workspaceMember = $this->activeWorkspace->member($currentUser->id)) !== null) {
+            // then check if user has specified permission for all the entries
+            return $entries->every(function (FileEntry $entry) use ($permission, $workspaceMember) {
+                $entryIsInWorkspace = (int) $entry->workspace_id === $this->activeWorkspace->id;
+                // file entry listing will be restricted in the builder query, no need to error here if user has no permission
+                if ($permission === 'files.view') {
+                    return $entryIsInWorkspace;
+                } else {
+                    return $entryIsInWorkspace && $workspaceMember->hasPermission($permission);
+                }
+            });
         }
 
         return false;

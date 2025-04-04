@@ -112,6 +112,11 @@ class FileEntryPolicy extends BasePolicy
      */
     protected function userCan(User $currentUser, string $permission, $entries)
     {
+        // Check for admin or superadmin permissions first
+        if ($currentUser->hasPermission('admin') || $currentUser->hasPermission('superadmin')) {
+            return true;
+        }
+
         if ($currentUser->hasPermission($permission)) {
             return true;
         }

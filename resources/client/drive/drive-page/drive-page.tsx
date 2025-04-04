@@ -40,8 +40,7 @@ const defaultSortDescriptor: DriveSortDescriptor = {
 export function makeFolderPage(folder: DriveFolder): DrivePage {
   return {
     ...makePartialFolderPage(folder.hash),
-    canUpload:
-      folder.permissions['files.create'] || folder.permissions['files.update'],
+    canUpload: folder.permissions['files.create'] || folder.permissions['files.update'],
     label: folder.name,
     folder,
   };
