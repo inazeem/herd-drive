@@ -35,7 +35,19 @@ class DriveEntriesController extends FileEntriesController
         $this->middleware('auth');
 
         $params = $this->request->all();
-        $params['userId'] = Auth::id();
+        
+        // If we're viewing a specific user's drive (from admin panel)
+        if ($this->request->route('userId')) {
+            $params['userId'] = (int) $this->request->route('userId');
+            // Force workspace_id to 0 for user-specific views
+            $params['workspace_id'] = 0;
+            // Only show files owned by this user
+            $params['owner_id'] = $params['userId'];
+        } else {
+            $params['userId'] = Auth::id();
+        }
+
+    
 
         $this->authorize('index', [FileEntry::class, null, $params['userId']]);
 

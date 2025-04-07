@@ -42,7 +42,7 @@ const uploadStoreOptions: FileUploadStoreOptions = {
 
 export function DriveLayout() {
   const {pathname} = useLocation();
-  const {hash} = useParams();
+  const {hash, userId} = useParams();
   const {workspaceId} = useActiveWorkspaceId();
   const activePage = useDriveStore(s => s.activePage);
 
@@ -54,8 +54,8 @@ export function DriveLayout() {
   }, [pathname, hash]);
 
   const urlsContextValue = useMemo(() => {
-    return {workspaceId};
-  }, [workspaceId]);
+    return {workspaceId, userId: userId ? parseInt(userId) : undefined};
+  }, [workspaceId, userId]);
 
   useEffect(() => {
     return () => {

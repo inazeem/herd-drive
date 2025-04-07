@@ -56,6 +56,10 @@ Route::group(['prefix' => 'v1'], function() {
     ]);
 
     // ENTRIES
+    Route::get('drive/users/{userId}/file-entries', [
+      DriveEntriesController::class,
+      'index',
+    ]);
     Route::get('drive/file-entries/{fileEntry}/model', [
       DriveEntriesController::class,
       'showModel',

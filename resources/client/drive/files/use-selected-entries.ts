@@ -8,8 +8,8 @@ export function useSelectedEntries(): DriveEntry[] {
   const ids = useDriveStore(s => s.selectedEntries);
   const entries = useEntries();
   return Array.from(ids)
-    .map(id => entries.find(entry => entry.id === id))
-    .filter(e => !!e) as DriveEntry[];
+    .map(id => entries.find((entry: DriveEntry) => entry.id === id))
+    .filter((e): e is DriveEntry => !!e);
 }
 
 export function useSelectedEntry(): DriveEntry | null {
@@ -28,6 +28,6 @@ export function getSelectedEntries(): DriveEntry[] {
   const ids = Array.from(driveState().selectedEntries);
   const allEntries = getAllEntries();
   return ids
-    .map(id => allEntries.find(entry => entry.id === id))
-    .filter(e => !!e) as DriveEntry[];
+    .map(id => allEntries.find((entry: DriveEntry) => entry.id === id))
+    .filter((e): e is DriveEntry => !!e);
 }

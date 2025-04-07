@@ -10,6 +10,8 @@ use Common\Workspaces\ActiveWorkspace;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class DriveEntriesLoader
 {
@@ -23,8 +25,16 @@ class DriveEntriesLoader
     {
         $this->setPermissionsOnEntry = app(SetPermissionsOnEntry::class);
         $this->filters = new DatasourceFilters($params['filters'] ?? null);
-        $this->userId = (int) $this->params['userId'];
-        $this->workspaceId = app(ActiveWorkspace::class)->id ?? 0;
+        $this->userId = (int) ($this->params['userId'] ?? Auth::id());
+        
+        // If we're viewing a specific user's drive, always use their personal workspace
+        if (isset($this->params['userId'])) {
+            $this->workspaceId = 0; // Personal workspace
+            $this->params['owner_id'] = $this->params['userId']; // Set owner_id to userId
+        } else {
+            $this->workspaceId = app(ActiveWorkspace::class)->id ?? 0;
+        }
+
         $this->params['perPage'] ??= 50;
         $this->params['section'] = $this->params['section'] ?? 'home';
 
@@ -82,48 +92,87 @@ class DriveEntriesLoader
 
     protected function home(): array
     {
-        $this->builder->whereNull('parent_id');
-
-        $this->builder->where('workspace_id', $this->workspaceId);
-        if ($this->workspaceId) {
-            $this->scopeToOwnerIfCantViewWorkspaceFiles();
+        // When viewing a specific user's drive, show only their personal files
+        if (isset($this->params['userId'])) {
+            $this->builder->whereNull('parent_id')
+                ->where('workspace_id', 0)
+                ->where('owner_id', $this->params['userId']);
         } else {
-            $this->builder->whereOwner($this->userId);
+            // Normal workspace filtering
+            $this->builder->whereNull('parent_id')
+                ->where('workspace_id', $this->workspaceId);
+            if ($this->workspaceId) {
+                $this->scopeToOwnerIfCantViewWorkspaceFiles();
+            } else {
+                $this->builder->whereOwner($this->userId);
+            }
         }
 
         $results = $this->loadEntries();
         $results['folder'] = $this->setPermissionsOnEntry->execute(
-            new RootFolder(),
+            new RootFolder(['owner_id' => $this->params['userId'] ?? null]),
         );
         return $results;
     }
 
     protected function folder(): array
     {
-        if ($this->params['folderId'] == 0) {
-            return $this->home();
-        } elseif ($this->params['folderId'] == 'sharedWithMe') {
-            return $this->sharedWithMe();
-        }
+        // Default folderId to 0 if not set
+        $folderId = $this->params['folderId'] ?? 0;
 
-        $folder = FileEntry::with('users')
-            ->byIdOrHash($this->params['folderId'])
-            ->firstOrFail();
-        $this->builder->where('parent_id', $folder->id);
+        if (!$folderId || $folderId == 0) {
+            // For root folder (0), show only personal files
+            $this->builder->whereNull('parent_id');
+            
+            if (isset($this->params['userId'])) {
+                $this->builder->where('workspace_id', 0)
+                    ->where('owner_id', $this->params['userId']);
+            } else {
+                $this->builder->where('workspace_id', $this->workspaceId);
+                if ($this->workspaceId) {
+                    $this->scopeToOwnerIfCantViewWorkspaceFiles();
+                } else {
+                    $this->builder->whereOwner($this->userId);
+                }
+            }
 
-        // Check if user is admin or superadmin
-        $user = auth()->user();
-        if ($user && ($user->hasPermission('admin') || $user->hasPermission('superadmin'))) {
-            // Admin can view all files in the folder
             $results = $this->loadEntries();
-            $results['folder'] = $this->setPermissionsOnEntry->execute($folder);
+            $results['folder'] = $this->setPermissionsOnEntry->execute(
+                new RootFolder(['owner_id' => $this->params['userId'] ?? null])
+            );
             return $results;
         }
 
-        if ($this->workspaceId) {
-            $this->scopeToOwnerIfCantViewWorkspaceFiles();
+        // Get the folder
+        $folder = FileEntry::with(['users', 'parent']);
+        
+        if (isset($this->params['userId'])) {
+            $folder->where('workspace_id', 0)
+                ->where('owner_id', $this->params['userId']);
         } else {
-            $this->builder->whereUser($this->userId);
+            $folder->where('workspace_id', $this->workspaceId);
+            if ($this->workspaceId) {
+                $this->scopeToOwnerIfCantViewWorkspaceFiles();
+            } else {
+                $folder->whereOwner($this->userId);
+            }
+        }
+
+        $folder = $folder->byIdOrHash($this->params['folderId'])->firstOrFail();
+
+        // Get all files in this folder
+        $this->builder->where('parent_id', $folder->id);
+        
+        if (isset($this->params['userId'])) {
+            $this->builder->where('workspace_id', 0)
+                ->where('owner_id', $this->params['userId']);
+        } else {
+            $this->builder->where('workspace_id', $this->workspaceId);
+            if ($this->workspaceId) {
+                $this->scopeToOwnerIfCantViewWorkspaceFiles();
+            } else {
+                $this->builder->whereOwner($this->userId);
+            }
         }
 
         $results = $this->loadEntries();

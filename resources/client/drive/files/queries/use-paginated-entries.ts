@@ -1,22 +1,17 @@
 import {InfiniteData, useInfiniteQuery} from '@tanstack/react-query';
 import {useSearchParams} from 'react-router';
-import {
-  hasNextPage,
-  LengthAwarePaginationResponse,
-} from '@common/http/backend-response/pagination-response';
+import {hasNextPage} from '@common/http/backend-response/pagination-response';
 import {DriveEntry, DriveFolder} from '../drive-entry';
 import {driveState, useDriveStore} from '../../drive-store';
 import {apiClient, queryClient} from '@common/http/query-client';
 import {DriveQueryKeys} from '../../drive-query-keys';
-import {SortColumn, SortDirection} from '../../layout/sorting/available-sorts';
-import {useActiveWorkspaceId} from '@common/workspace/active-workspace-id-context';
-import {makeFolderPage, SearchPage} from '../../drive-page/drive-page';
+import {SearchPage, makeFolderPage} from '../../drive-page/drive-page';
 import {useEffect} from 'react';
-import {shallowEqual} from '@ui/utils/shallow-equal';
+import {useActiveWorkspaceId} from '@common/workspace/active-workspace-id-context';
 
 export interface DriveApiIndexParams {
-  orderBy?: SortColumn;
-  orderDir?: SortDirection;
+  orderBy?: string;
+  orderDir?: string;
   folderId?: string | number | null;
   query?: string;
   filters?: string;
@@ -28,63 +23,65 @@ export interface DriveApiIndexParams {
   recentOnly?: boolean;
   workspaceId?: number | null;
   section?: string;
+  userId?: number;
 }
 
-export interface EntriesPaginationResponse
-  extends LengthAwarePaginationResponse<DriveEntry> {
+export interface EntriesPaginationResponse {
+  data: DriveEntry[];
+  current_page: number;
+  last_page: number;
   folder?: DriveFolder;
 }
 
-function fetchEntries(
-  params: DriveApiIndexParams,
-): Promise<EntriesPaginationResponse> {
-  return apiClient
-    .get('drive/file-entries', {
-      params,
-    })
-    .then(response => response.data);
-}
-
-const setActiveFolder = (response: InfiniteData<EntriesPaginationResponse>) => {
-  const firstPage = response.pages[0];
-  const newFolder = firstPage.folder;
-  const currentPage = driveState().activePage;
-
-  if (
-    newFolder &&
-    currentPage &&
-    currentPage.uniqueId === newFolder.hash &&
-    // only update page if once to set the folder or if permissions change, to keep page reference as stable as possible
-    (!currentPage.folder ||
-      !shallowEqual(newFolder.permissions, currentPage.folder?.permissions))
-  ) {
-    driveState().setActivePage(makeFolderPage(newFolder));
-  }
-  return response;
-};
-
-export function usePaginatedEntries() {
+export function usePaginatedEntries(options: {userId?: number} = {}) {
   const page = useDriveStore(s => s.activePage);
   const sortDescriptor = useDriveStore(s => s.sortDescriptor);
   const [searchParams] = useSearchParams();
   const {workspaceId} = useActiveWorkspaceId();
+  const {userId} = options;
+
+  // Base params without workspaceId
   const params: DriveApiIndexParams = {
-    section: page?.name,
+    orderBy: sortDescriptor?.orderBy,
+    orderDir: sortDescriptor?.orderDir,
+    section: page?.name || 'folder',
     ...page?.queryParams,
     ...Object.fromEntries(searchParams),
-    folderId: page?.isFolderPage ? page.uniqueId : null,
-    workspaceId,
-    ...sortDescriptor,
+    folderId: page?.isFolderPage ? page.uniqueId : '0',
   };
 
-  // if we have no search query, there's no need to call the API, show no results message instead
-  const isDisabledInSearch =
-    page === SearchPage && !params.query && !params.filters;
+  // When viewing user files, ONLY use userId and never workspaceId
+  if (userId != null) {
+    params.userId = userId;
+    // Ensure workspaceId is not present
+    delete params.workspaceId;
+  } else {
+    // When not viewing user files, ONLY use workspaceId
+    params.workspaceId = workspaceId;
+  }
+
+  const isDisabledInSearch = page === SearchPage && !params.query && !params.filters;
 
   const query = useInfiniteQuery({
     queryKey: DriveQueryKeys.fetchEntries(params),
     queryFn: ({pageParam = 1}) => {
-      return fetchEntries({...params, page: pageParam});
+      const queryParams = {
+        ...params,
+        page: pageParam,
+      };
+      
+      // Use user-specific endpoint when userId is provided
+      const endpoint = userId != null
+        ? `drive/users/${userId}/file-entries`
+        : 'drive/file-entries';
+
+      console.log('Making request to:', endpoint, 'with params:', queryParams); // Add logging
+
+      return apiClient
+        .get(endpoint, {
+          params: queryParams,
+        })
+        .then(response => response.data);
     },
     initialPageParam: 1,
     getNextPageParam: lastResponse => {
@@ -94,13 +91,18 @@ export function usePaginatedEntries() {
       }
       return currentPage + 1;
     },
-    enabled: page != null && !isDisabledInSearch,
+    enabled: !isDisabledInSearch,
+    gcTime: 0,
+    // Reduce unnecessary refetches
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
-  // need to do this in effect, to avoid react errors about
-  // multiple components re-rendering at the same time
+  // Update active folder if needed
   useEffect(() => {
-    if (query.data?.pages[0].folder) {
+    if (query.data?.pages[0]?.folder) {
       setActiveFolder(query.data);
     }
   }, [query.data]);
@@ -108,10 +110,19 @@ export function usePaginatedEntries() {
   return query;
 }
 
-export function getAllEntries() {
-  const caches = queryClient.getQueriesData<
-    InfiniteData<EntriesPaginationResponse>
-  >({queryKey: DriveQueryKeys.fetchEntries()});
+function setActiveFolder(data: InfiniteData<EntriesPaginationResponse>) {
+  const folder = data.pages[0].folder;
+  if (!folder) return;
+  const currentFolder = useDriveStore.getState().activePage?.folder;
+  if (!currentFolder || currentFolder.id !== folder.id || currentFolder.hash !== folder.hash) {
+    driveState().setActivePage(makeFolderPage(folder));
+  }
+}
+
+export function getAllEntries(): DriveEntry[] {
+  const caches = queryClient.getQueriesData<InfiniteData<EntriesPaginationResponse>>({
+    queryKey: DriveQueryKeys.fetchEntries(),
+  });
   return caches.reduce<DriveEntry[]>((all, cache) => {
     const current = cache[1] ? cache[1].pages.flatMap(p => p.data) : [];
     return [...all, ...current];

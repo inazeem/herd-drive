@@ -30,6 +30,10 @@ export const driveRoutes: RouteObject[] = [
         lazy: () => lazyDriveRoute('DriveLayout'),
       },
       {
+        path: 'users/:userId',
+        lazy: () => lazyDriveRoute('DriveLayout'),
+      },
+      {
         path: 'shares',
         lazy: () => lazyDriveRoute('DriveLayout'),
       },

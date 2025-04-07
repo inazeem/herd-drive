@@ -24,13 +24,18 @@ function fetchUserFolders(
     .then(response => response.data);
 }
 
-export function useFolders() {
+export function useFolders(options: {userId?: number} = {}) {
   const {user} = useAuth();
   const {workspaceId} = useActiveWorkspaceId();
+  
+  // Use provided userId if available, otherwise use logged-in user's ID
+  const userId = options.userId ?? user!.id;
+  
   const params: UserFoldersApiParams = {
-    userId: user!.id,
-    workspaceId,
+    userId,
+    workspaceId: options.userId ? null : workspaceId, // If viewing another user's folders, set workspaceId to null
   };
+  
   return useQuery({
     queryKey: DriveQueryKeys.fetchUserFolders(params),
     queryFn: () => fetchUserFolders(params),

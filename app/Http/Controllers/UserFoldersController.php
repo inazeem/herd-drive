@@ -20,14 +20,8 @@ class UserFoldersController extends BaseController
     {
         $this->authorize('index', [FileEntry::class, null, $userId]);
 
-        $query = $this->folder->where(
-            'workspace_id',
-            app(ActiveWorkspace::class)->id,
-        );
-
-        if (!app(ActiveWorkspace::class)->id) {
-            $query->where('owner_id', $userId);
-        }
+        $query = $this->folder->where('workspace_id', 0)
+            ->where('owner_id', $userId);
 
         $folders = $query
             ->select(
@@ -49,11 +43,13 @@ class UserFoldersController extends BaseController
             );
         }
 
+        $rootFolder = new RootFolder();
+        $rootFolder->owner_id = $userId;
+        $rootFolder->workspace_id = 0;
+
         return $this->success([
             'folders' => $folders,
-            'rootFolder' => app(SetPermissionsOnEntry::class)->execute(
-                new RootFolder(),
-            ),
+            'rootFolder' => app(SetPermissionsOnEntry::class)->execute($rootFolder),
         ]);
     }
 }

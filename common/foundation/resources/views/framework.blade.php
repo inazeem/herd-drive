@@ -60,8 +60,16 @@
             <link rel="stylesheet" href="{{ $devCssPath }}" />
         @endif
 
-        @viteReactRefresh
-        @vite('resources/client/main.tsx')
+        @if(app()->environment('production'))
+            @php
+                $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true);
+            @endphp
+            <script type="module" src="{{ asset('build/' . $manifest['resources/client/main.tsx']['file']) }}"></script>
+            <link rel="stylesheet" href="{{ asset('build/' . $manifest['resources/client/main.css']['file']) }}">
+        @else
+            @viteReactRefresh
+            @vite('resources/client/main.tsx')
+        @endif
 
         @if (file_exists($customCssPath))
             @if ($content = file_get_contents($customCssPath))

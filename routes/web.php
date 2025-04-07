@@ -5,6 +5,7 @@ use App\Http\Controllers\ShareableLinksController;
 use Common\Core\Controllers\HomeController;
 use Common\Pages\CustomPageController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
 
 //FRONT-END ROUTES THAT NEED TO BE PRE-RENDERED
 Route::get('/', LandingPageController::class);
@@ -19,3 +20,15 @@ Route::get('pricing', '\Common\Billing\PricingPageController');
 
 //CATCH ALL ROUTES AND REDIRECT TO HOME
 Route::fallback([HomeController::class, 'render']);
+
+if (app()->environment('local', 'development')) {
+    Route::any('/@vite/{path?}', function ($path = '') {
+        $response = Http::get("http://127.0.0.1:5173/@vite/{$path}");
+        return $response->body();
+    })->where('path', '.*');
+    
+    Route::any('/resources/{path?}', function ($path = '') {
+        $response = Http::get("http://127.0.0.1:5173/resources/{$path}");
+        return $response->body();
+    })->where('path', '.*');
+}

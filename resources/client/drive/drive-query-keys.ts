@@ -5,8 +5,21 @@ import {Key} from 'react';
 
 export const DriveQueryKeys = {
   fetchEntries: (params?: DriveApiIndexParams) => {
-    const key: ('drive-entries' | DriveApiIndexParams)[] = ['drive-entries'];
-    if (params) key.push(params);
+    // Always start with base key
+    const key: (string | number | DriveApiIndexParams)[] = ['drive-entries'];
+    
+    // If we have a userId, make it part of the base key to ensure unique caching per user
+    if (params?.userId != null) {
+      key.push('user');
+      key.push(params.userId);
+    }
+    
+    // Add remaining params without userId and workspaceId
+    if (params) {
+      const {userId: _, workspaceId: __, ...cleanParams} = params;
+      key.push(cleanParams);
+    }
+    
     return key;
   },
   fetchUserFolders(params?: UserFoldersApiParams) {
