@@ -4,9 +4,11 @@ import {driveState} from '../drive-store';
 import {DriveEntry} from '../files/drive-entry';
 import {getSelectedEntries} from '../files/use-selected-entries';
 import {useNavigate} from '@common/ui/navigation/use-navigate';
+import {useParams} from 'react-router-dom';
 
 export function useViewItemActionHandler() {
   const navigate = useNavigate();
+  const {userId} = useParams();
 
   const performViewItemAction = useCallback(
     (entry: DriveEntry) => {
@@ -14,7 +16,7 @@ export function useViewItemActionHandler() {
         if (driveState().activePage === TrashPage) {
           driveState().setActiveActionDialog('trashFolderBlock', [entry]);
         } else {
-          navigate(getPathForFolder(entry.hash));
+          navigate(getPathForFolder(entry.hash, userId ? parseInt(userId) : undefined));
         }
       } else {
         const selectedEntries = getSelectedEntries();
@@ -24,7 +26,7 @@ export function useViewItemActionHandler() {
         );
       }
     },
-    [navigate],
+    [navigate, userId],
   );
 
   return {performViewItemAction};

@@ -37,21 +37,21 @@ const defaultSortDescriptor: DriveSortDescriptor = {
   orderDir: 'desc',
 };
 
-export function makeFolderPage(folder: DriveFolder): DrivePage {
+export function makeFolderPage(folder: DriveFolder, userId?: number): DrivePage {
   return {
-    ...makePartialFolderPage(folder.hash),
+    ...makePartialFolderPage(folder.hash, userId),
     canUpload: folder.permissions['files.create'] || folder.permissions['files.update'],
     label: folder.name,
     folder,
   };
 }
 
-export function makePartialFolderPage(hash: string): DrivePage {
+export function makePartialFolderPage(hash: string, userId?: number): DrivePage {
   return {
     name: 'folder',
     uniqueId: hash,
     label: '',
-    path: getPathForFolder(hash),
+    path: getPathForFolder(hash, userId),
     hasActions: true,
     canUpload: false,
     sortDescriptor: defaultSortDescriptor,
@@ -64,7 +64,16 @@ export function makePartialFolderPage(hash: string): DrivePage {
   };
 }
 
-export function getPathForFolder(hash: string): string {
+export function getPathForFolder(hash: string, userId?: number): string {
+  if (userId != null) {
+    // When viewing a specific user's drive
+    if (hash === '0') {
+      return `/drive/users/${userId}`;
+    }
+    return `/drive/users/${userId}/folders/${hash}`;
+  }
+  
+  // Normal workspace view
   if (hash === '0') {
     return '/drive';
   }

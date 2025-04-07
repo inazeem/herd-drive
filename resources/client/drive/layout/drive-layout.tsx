@@ -49,9 +49,9 @@ export function DriveLayout() {
   useEffect(() => {
     driveState().setActivePage(
       DRIVE_PAGES.find(p => p.path === pathname) ||
-        makePartialFolderPage(hash!),
+        makePartialFolderPage(hash!, userId ? parseInt(userId) : undefined),
     );
-  }, [pathname, hash]);
+  }, [pathname, hash, userId]);
 
   const urlsContextValue = useMemo(() => {
     return {workspaceId, userId: userId ? parseInt(userId) : undefined};

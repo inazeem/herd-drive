@@ -1,5 +1,5 @@
 import {InfiniteData, useInfiniteQuery} from '@tanstack/react-query';
-import {useSearchParams} from 'react-router';
+import {useSearchParams, useParams} from 'react-router';
 import {hasNextPage} from '@common/http/backend-response/pagination-response';
 import {DriveEntry, DriveFolder} from '../drive-entry';
 import {driveState, useDriveStore} from '../../drive-store';
@@ -38,7 +38,8 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
   const sortDescriptor = useDriveStore(s => s.sortDescriptor);
   const [searchParams] = useSearchParams();
   const {workspaceId} = useActiveWorkspaceId();
-  const {userId} = options;
+  const {userId} = useParams();
+  const {userId: optionsUserId} = options;
 
   // Base params without workspaceId
   const params: DriveApiIndexParams = {
@@ -51,8 +52,8 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
   };
 
   // When viewing user files, ONLY use userId and never workspaceId
-  if (userId != null) {
-    params.userId = userId;
+  if (optionsUserId != null || userId != null) {
+    params.userId = optionsUserId ?? (userId ? parseInt(userId) : undefined);
     // Ensure workspaceId is not present
     delete params.workspaceId;
   } else {
@@ -71,11 +72,9 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
       };
       
       // Use user-specific endpoint when userId is provided
-      const endpoint = userId != null
-        ? `drive/users/${userId}/file-entries`
+      const endpoint = params.userId != null
+        ? `drive/users/${params.userId}/file-entries`
         : 'drive/file-entries';
-
-      console.log('Making request to:', endpoint, 'with params:', queryParams); // Add logging
 
       return apiClient
         .get(endpoint, {
@@ -93,7 +92,6 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
     },
     enabled: !isDisabledInSearch,
     gcTime: 0,
-    // Reduce unnecessary refetches
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -103,20 +101,16 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
   // Update active folder if needed
   useEffect(() => {
     if (query.data?.pages[0]?.folder) {
-      setActiveFolder(query.data);
+      const folder = query.data.pages[0].folder;
+      const currentFolder = useDriveStore.getState().activePage?.folder;
+      
+      if (!currentFolder || currentFolder.id !== folder.id || currentFolder.hash !== folder.hash) {
+        driveState().setActivePage(makeFolderPage(folder, params.userId));
+      }
     }
-  }, [query.data]);
+  }, [query.data, params.userId]);
 
   return query;
-}
-
-function setActiveFolder(data: InfiniteData<EntriesPaginationResponse>) {
-  const folder = data.pages[0].folder;
-  if (!folder) return;
-  const currentFolder = useDriveStore.getState().activePage?.folder;
-  if (!currentFolder || currentFolder.id !== folder.id || currentFolder.hash !== folder.hash) {
-    driveState().setActivePage(makeFolderPage(folder));
-  }
 }
 
 export function getAllEntries(): DriveEntry[] {
