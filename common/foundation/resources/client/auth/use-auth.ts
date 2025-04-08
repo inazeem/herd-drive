@@ -34,7 +34,7 @@ interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const data = useBootstrapDataStore(s => s.data);
   const {
-    auth: {redirectUri = '/'},
+    auth: {redirectUri = '/', adminRedirectUri = '/admin'},
   } = useContext(SiteConfigContext);
 
   return useMemo(() => {
@@ -55,10 +55,14 @@ export function useAuth(): UseAuthReturn {
         if (onboarding) {
           return `/checkout/${onboarding.productId}/${onboarding.priceId}`;
         }
+        // Check if user has admin access permission
+        if (auth.hasPermission('admin.access')) {
+          return adminRedirectUri;
+        }
         return redirectUri;
       },
     };
-  }, [data, redirectUri]);
+  }, [data, redirectUri, adminRedirectUri]);
 }
 
 class _Auth {

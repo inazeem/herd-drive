@@ -18,7 +18,7 @@ export const SiteConfig: Partial<SiteConfigContextValue> = {
   },
   auth: {
     redirectUri: '/drive',
-    adminRedirectUri: '/drive',
+    adminRedirectUri: '/root-folders',
   },
   tags: {
     types: [{name: 'label', system: true}],

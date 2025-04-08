@@ -6,12 +6,13 @@ import {lazyAdminRoute} from '@common/admin/routes/lazy-admin-route';
 import {appSettingsRoutes} from '@app/admin/settings/app-settings-routes';
 
 export const adminRoutes: RouteObject[] = [
+  // Root level routes
+  ...appAdminRoutes,
   {
     path: 'admin',
     loader: () => authGuard({permission: 'admin.access'}),
     lazy: () => lazyAdminRoute('AdminLayout'),
     children: [
-      ...appAdminRoutes,
       // REPORT PAGE
       {
         index: true,

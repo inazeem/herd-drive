@@ -109,7 +109,7 @@ Route::group(['prefix' => 'v1'], function() {
     Route::post('fcm-token', [FcmTokenController::class, 'store']);
 
     // Root Folders
-    Route::get('root-folders', [RootFoldersController::class, 'index']);
+    Route::get('/root-folders', [RootFoldersController::class, 'index']);
   });
 
   //SHAREABLE LINKS PREVIEW (NO AUTH NEEDED)
