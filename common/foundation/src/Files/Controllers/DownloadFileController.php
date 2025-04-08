@@ -6,6 +6,7 @@ use Common\Files\Response\DownloadFilesResponse;
 use Common\Files\Response\FileResponseFactory;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\Auth;
 
 class DownloadFileController extends BaseController
 {
@@ -28,7 +29,20 @@ class DownloadFileController extends BaseController
             abort(404, 'No entry hashes provided.');
         }
 
-        $entries = $this->fileEntry->whereIn('id', $ids)->get();
+        // Set workspace ID to 0 for personal workspace
+        $workspaceId = (int) $this->request->get('workspaceId', 0);
+        
+        // Get current user ID if userId is undefined or not set
+        $userId = $this->request->get('userId');
+        if (!$userId || $userId === 'undefined') {
+            $userId = Auth::id();
+        }
+
+        // Apply workspace and user context
+        $entries = $this->fileEntry
+            ->where('workspace_id', $workspaceId)
+            ->whereIn('id', $ids)
+            ->get();
 
         $this->authorize('download', [FileEntry::class, $entries]);
 

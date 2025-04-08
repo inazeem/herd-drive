@@ -76,6 +76,15 @@ class FileEntryPolicy extends BasePolicy
             }
         }
 
+        // Check if we're in a personal workspace view
+        $workspaceId = (int) request('workspaceId', 0);
+        $isPersonalWorkspace = $workspaceId === 0;
+
+        if ($isPersonalWorkspace) {
+            // Allow download if the file is in user's personal workspace, regardless of owner
+            return true;
+        }
+
         return $this->userCan($user, 'files.download', $entries);
     }
 
