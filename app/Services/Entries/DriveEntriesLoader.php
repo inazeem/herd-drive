@@ -120,13 +120,23 @@ class DriveEntriesLoader
         // Default folderId to 0 if not set
         $folderId = $this->params['folderId'] ?? 0;
 
+        // Get IDs of users with admin or superadmin permissions
+        $adminIds = User::whereHas('permissions', function($query) {
+            $query->whereIn('name', ['admin', 'superadmin']);
+        })->pluck('id')->toArray();
+
+        \Log::info('Admin IDs', ['adminIds' => $adminIds]);
+
         if (!$folderId || $folderId == 0) {
-            // For root folder (0), show only personal files
+            // For root folder (0), show files owned by user or admins/superadmins
             $this->builder->whereNull('parent_id');
             
             if (isset($this->params['userId'])) {
                 $this->builder->where('workspace_id', 0)
-                    ->where('owner_id', $this->params['userId']);
+                    ->where(function($query) use ($adminIds) {
+                        $query->where('owner_id', $this->params['userId'])
+                            ->orWhereIn('owner_id', $adminIds);
+                    });
             } else {
                 $this->builder->where('workspace_id', $this->workspaceId);
                 if ($this->workspaceId) {
@@ -148,7 +158,10 @@ class DriveEntriesLoader
         
         if (isset($this->params['userId'])) {
             $folder->where('workspace_id', 0)
-                ->where('owner_id', $this->params['userId']);
+                ->where(function($query) use ($adminIds) {
+                    $query->where('owner_id', $this->params['userId'])
+                        ->orWhereIn('owner_id', $adminIds);
+                });
         } else {
             $folder->where('workspace_id', $this->workspaceId);
             if ($this->workspaceId) {
@@ -165,7 +178,10 @@ class DriveEntriesLoader
         
         if (isset($this->params['userId'])) {
             $this->builder->where('workspace_id', 0)
-                ->where('owner_id', $this->params['userId']);
+                ->where(function($query) use ($adminIds) {
+                    $query->where('owner_id', $this->params['userId'])
+                        ->orWhereIn('owner_id', $adminIds);
+                });
         } else {
             $this->builder->where('workspace_id', $this->workspaceId);
             if ($this->workspaceId) {
@@ -175,8 +191,36 @@ class DriveEntriesLoader
             }
         }
 
+        // Log the SQL query and bindings
+        \Log::info('SQL Query', [
+            'sql' => $this->builder->toSql(),
+            'bindings' => $this->builder->getBindings()
+        ]);
+
+        // Check if there are any files in the database
+        $fileCount = FileEntry::count();
+        \Log::info('Total files in database', ['count' => $fileCount]);
+
+        // Check files owned by the user
+        $userFiles = FileEntry::where('owner_id', $this->params['userId'])->count();
+        \Log::info('Files owned by user', ['count' => $userFiles]);
+
+        // Check files owned by admins
+        $adminFiles = FileEntry::whereIn('owner_id', $adminIds)->count();
+        \Log::info('Files owned by admins', ['count' => $adminFiles]);
+
+        // Check files at root level
+        $rootFiles = FileEntry::whereNull('parent_id')->count();
+        \Log::info('Files at root level', ['count' => $rootFiles]);
+
         $results = $this->loadEntries();
         $results['folder'] = $this->setPermissionsOnEntry->execute($folder);
+        
+        \Log::info('Results', [
+            'total' => $results['total'] ?? 0,
+            'data_count' => count($results['data'] ?? [])
+        ]);
+        
         return $results;
     }
 
