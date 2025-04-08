@@ -62,9 +62,17 @@ class SetPermissionsOnEntry
         $isPersonalFolderView = $this->activeWorkspace->isPersonal();
 
         foreach ($this->permissionToCheck as $permission) {
-            // In personal workspace, grant all basic permissions
+            // In personal workspace
             if ($isPersonalFolderView) {
-                $entryPermissions[$permission] = true;
+                if ($permission === 'files.delete') {
+                    // Allow delete if:
+                    // 1. User owns the entry OR
+                    // 2. Entry is in user's personal workspace
+                    $entryPermissions[$permission] = true;
+                } else {
+                    // Grant all other permissions in personal workspace
+                    $entryPermissions[$permission] = true;
+                }
             } else {
                 $entryPermissions[$permission] =
                     $this->hasDirectPermission($permission) ||
