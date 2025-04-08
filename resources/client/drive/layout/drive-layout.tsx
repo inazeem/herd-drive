@@ -1,4 +1,4 @@
-import React, {Fragment, useContext, useEffect, useMemo} from 'react';
+import React, {Fragment, useContext, useEffect, useMemo, ReactNode, ReactElement} from 'react';
 import {Link, useLocation, useParams} from 'react-router';
 import {Sidebar} from './sidebar/sidebar';
 import {FileView} from '../file-view/file-view';
@@ -40,7 +40,11 @@ const uploadStoreOptions: FileUploadStoreOptions = {
   },
 };
 
-export function DriveLayout() {
+interface DriveLayoutProps {
+  children?: ReactElement;
+}
+
+export function DriveLayout({children}: DriveLayoutProps) {
   const {pathname} = useLocation();
   const {hash, userId} = useParams();
   const {workspaceId} = useActiveWorkspaceId();
@@ -96,7 +100,7 @@ export function DriveLayout() {
             </DashboardSidenav>
             <DriveContentHeader />
             <DashboardContent>
-              <FileView />
+              {children || <FileView />}
             </DashboardContent>
             <UploadQueue />
             <DriveDialogsContainer />

@@ -2,6 +2,11 @@ import {RouteObject} from 'react-router';
 import React from 'react';
 import {AuthRoute} from '@common/auth/guards/auth-route';
 import {ActiveWorkspaceProvider} from '@common/workspace/active-workspace-id-context';
+import {UserListPage} from './user-list/user-list-page';
+import {useAuth} from '@common/auth/use-auth';
+import {DriveLayout} from './layout/drive-layout';
+import {FileView} from './file-view/file-view';
+import {AdminDriveLayout} from './layout/admin-drive-layout';
 
 const lazyDriveRoute = async (
   cmp: keyof typeof import('@app/drive/drive-routes.lazy'),
@@ -11,6 +16,21 @@ const lazyDriveRoute = async (
     Component: exports[cmp],
   };
 };
+
+function DriveIndex() {
+  const {hasPermission} = useAuth();
+  const canViewAllUsers = hasPermission('files.view');
+
+  if (canViewAllUsers) {
+    return (
+      <AdminDriveLayout>
+        <UserListPage />
+      </AdminDriveLayout>
+    );
+  }
+
+  return <DriveLayout><FileView /></DriveLayout>;
+}
 
 export const driveRoutes: RouteObject[] = [
   {
@@ -23,7 +43,7 @@ export const driveRoutes: RouteObject[] = [
     children: [
       {
         index: true,
-        lazy: () => lazyDriveRoute('DriveLayout'),
+        element: <DriveIndex />,
       },
       {
         path: 'folders/:hash',
