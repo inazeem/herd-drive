@@ -126,6 +126,25 @@ class FileEntryPolicy extends BasePolicy
             return true;
         }
 
+        // Check if we're in a personal workspace view
+        $workspaceId = (int) request('workspaceId', 0);
+        $isPersonalWorkspace = $workspaceId === 0;
+
+        // Allow all operations in personal workspace
+        if ($isPersonalWorkspace) {
+            // Only allow basic file operations (view, download, star, copy)
+            $allowedPersonalOps = [
+                'files.view',
+                'files.download',
+                'files.update', // needed for starring/renaming
+                'files.create', // needed for make a copy
+            ];
+            
+            if (in_array($permission, $allowedPersonalOps)) {
+                return true;
+            }
+        }
+
         if ($currentUser->hasPermission($permission)) {
             return true;
         }

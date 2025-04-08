@@ -62,15 +62,17 @@ class SetPermissionsOnEntry
         $isPersonalFolderView = $this->activeWorkspace->isPersonal();
 
         foreach ($this->permissionToCheck as $permission) {
-            $entryPermissions[$permission] =
-                $this->hasDirectPermission($permission) ||
-                $this->policy->userOwnsEntryOrWasGrantedPermission(
-                    $entryUser,
-                    $permission,
-                ) ||
-                $this->userHasPermissionViaWorkspace($permission) ||
-                // Allow download permission in personal folder view for all files
-                ($isPersonalFolderView && $permission === 'files.download');
+            // In personal workspace, grant all basic permissions
+            if ($isPersonalFolderView) {
+                $entryPermissions[$permission] = true;
+            } else {
+                $entryPermissions[$permission] =
+                    $this->hasDirectPermission($permission) ||
+                    $this->policy->userOwnsEntryOrWasGrantedPermission(
+                        $entryUser,
+                        $permission,
+                    );
+            }
         }
 
         $entry['permissions'] = $entryPermissions;
