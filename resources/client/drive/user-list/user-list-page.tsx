@@ -23,7 +23,6 @@ interface UserWithFolders extends TableDataItem {
 export function UserListPage() {
   const navigate = useNavigate();
   const {setWorkspaceId} = useActiveWorkspaceId();
-  const [searchQuery, setSearchQuery] = useState('');
   const {trans} = useTrans();
 
   const navigateToUserDrive = (userId: number) => {
@@ -63,19 +62,13 @@ export function UserListPage() {
 
   return (
     <div className="p-12 md:p-24">
-      <div className="mb-24">
-        <TextField
-          startAdornment={<SearchIcon />}
-          value={searchQuery}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-          placeholder={trans({message: 'Type to search users...'})}
-        />
-      </div>
       <DataTable 
         columns={columns}
         onRowAction={(item: UserWithFolders) => navigateToUserDrive(item.id)}
         endpoint="drive/file-entries"
-        queryParams={{query: searchQuery}}
+        queryParams={{
+          with: 'entries'
+        }}
         searchPlaceholder={{message: 'Search users...'}}
         emptyStateMessage={
           <DataTableEmptyStateMessage

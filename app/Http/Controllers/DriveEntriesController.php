@@ -62,7 +62,10 @@ class DriveEntriesController extends FileEntriesController
                 $query->where('type', 'folder')
                     ->whereNull('parent_id')
                     ->orWhere('name', 'root');
-            }]);
+            }])
+            ->whereDoesntHave('roles', function($q) {
+                $q->whereIn('name', ['admin', 'superadmin']);
+            });
 
         // Handle search
         if ($searchQuery = $this->request->get('query')) {
