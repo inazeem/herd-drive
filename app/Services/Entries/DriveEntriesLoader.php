@@ -263,17 +263,58 @@ class DriveEntriesLoader
 
     protected function recent(): array
     {
-        // only show files in recent section
-        $this->builder->where('type', '!=', 'folder');
+        try {
+            // only show files in recent section
+            $this->builder->where('type', '!=', 'folder');
 
-        $this->builder->where('workspace_id', $this->workspaceId);
-        if ($this->workspaceId) {
-            $this->scopeToOwnerIfCantViewWorkspaceFiles();
-        } else {
-            $this->builder->whereOwner($this->userId);
+            $this->builder->where('workspace_id', $this->workspaceId);
+            if ($this->workspaceId) {
+                $this->scopeToOwnerIfCantViewWorkspaceFiles();
+            } else {
+                $this->builder->whereOwner($this->userId);
+            }
+
+            // Add logging for debugging
+            \Log::info('Recent files query', [
+                'sql' => $this->builder->toSql(),
+                'bindings' => $this->builder->getBindings(),
+                'userId' => $this->userId,
+                'workspaceId' => $this->workspaceId
+            ]);
+
+            $results = $this->loadEntries();
+
+            // Validate results structure
+            if (!isset($results['data']) || !is_array($results['data'])) {
+                throw new \Exception('Invalid results structure');
+            }
+
+            // Log the results count
+            \Log::info('Recent files results', [
+                'count' => count($results['data']),
+                'total' => $results['total'] ?? 0
+            ]);
+
+            return $results;
+        } catch (\Exception $e) {
+            \Log::error('Error in recent files', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'userId' => $this->userId,
+                'workspaceId' => $this->workspaceId
+            ]);
+
+            // Return empty results with valid structure
+            return [
+                'data' => [],
+                'total' => 0,
+                'per_page' => $this->params['perPage'] ?? 50,
+                'current_page' => 1,
+                'last_page' => 1,
+                'from' => 0,
+                'to' => 0
+            ];
         }
-
-        return $this->loadEntries();
     }
 
     protected function trash(): array
@@ -372,25 +413,65 @@ class DriveEntriesLoader
 
     protected function loadEntries(): array
     {
-        $datasource = (new Datasource(
-            $this->builder,
-            // prevent filtering by user id or workspace, it will be done here already
-            Arr::except($this->params, ['userId', 'workspaceId']),
-            $this->filters,
-        ))->buildQuery();
+        try {
+            // Log the query before execution
+            \Log::info('Loading entries', [
+                'sql' => $this->builder->toSql(),
+                'bindings' => $this->builder->getBindings()
+            ]);
 
-        // order by name in case updated_at date is the same
-        $orderCol = $this->builder->getQuery()->orders[0]['column'] ?? null;
-        if (!is_string($orderCol) || $orderCol != 'name') {
-            $this->builder->orderBy('name', 'asc');
+            $datasource = new Datasource(
+                $this->builder,
+                // prevent filtering by user id or workspace, it will be done here already
+                Arr::except($this->params, ['userId', 'workspaceId']),
+                $this->filters
+            );
+
+            $datasource->buildQuery();
+
+            // order by name in case updated_at date is the same
+            $orderCol = $this->builder->getQuery()->orders[0]['column'] ?? null;
+            if (!is_string($orderCol) || $orderCol != 'name') {
+                $this->builder->orderBy('name', 'asc');
+            }
+
+            $results = $datasource->paginate()->toArray();
+            
+            // Validate pagination structure
+            if (!isset($results['data']) || !is_array($results['data'])) {
+                throw new \Exception('Invalid pagination structure');
+            }
+
+            $results['data'] = array_map(
+                fn($result) => $this->setPermissionsOnEntry->execute($result),
+                $results['data']
+            );
+
+            // Log successful results
+            \Log::info('Entries loaded successfully', [
+                'count' => count($results['data']),
+                'total' => $results['total'] ?? 0
+            ]);
+
+            return $results;
+        } catch (\Exception $e) {
+            \Log::error('Error loading entries', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'userId' => $this->userId,
+                'workspaceId' => $this->workspaceId
+            ]);
+
+            // Return empty pagination structure
+            return [
+                'data' => [],
+                'total' => 0,
+                'per_page' => $this->params['perPage'] ?? 50,
+                'current_page' => 1,
+                'last_page' => 1,
+                'from' => 0,
+                'to' => 0
+            ];
         }
-
-        $results = $datasource->paginate()->toArray();
-        $results['data'] = array_map(
-            fn($result) => $this->setPermissionsOnEntry->execute($result),
-            $results['data'],
-        );
-
-        return $results;
     }
 }

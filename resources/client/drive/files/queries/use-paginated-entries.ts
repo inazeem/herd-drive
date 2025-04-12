@@ -1,6 +1,6 @@
 import {InfiniteData, useInfiniteQuery} from '@tanstack/react-query';
 import {useSearchParams, useParams} from 'react-router';
-import {hasNextPage} from '@common/http/backend-response/pagination-response';
+import {hasNextPage, LengthAwarePaginationResponse} from '@common/http/backend-response/pagination-response';
 import {DriveEntry, DriveFolder} from '../drive-entry';
 import {driveState, useDriveStore} from '../../drive-store';
 import {apiClient, queryClient} from '@common/http/query-client';
@@ -26,10 +26,7 @@ export interface DriveApiIndexParams {
   userId?: number;
 }
 
-export interface EntriesPaginationResponse {
-  data: DriveEntry[];
-  current_page: number;
-  last_page: number;
+export interface EntriesPaginationResponse extends LengthAwarePaginationResponse<DriveEntry> {
   folder?: DriveFolder;
 }
 
@@ -46,6 +43,7 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
     orderBy: sortDescriptor?.orderBy,
     orderDir: sortDescriptor?.orderDir,
     section: page?.name || 'folder',
+    perPage: 50,
     ...page?.queryParams,
     ...Object.fromEntries(searchParams),
     folderId: page?.isFolderPage ? page.uniqueId : '0',
@@ -65,30 +63,53 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
 
   const query = useInfiniteQuery({
     queryKey: DriveQueryKeys.fetchEntries(params),
-    queryFn: ({pageParam = 1}) => {
-      const queryParams = {
-        ...params,
-        page: pageParam,
-      };
-      
-      // Use user-specific endpoint when userId is provided
-      const endpoint = params.userId != null
-        ? `drive/users/${params.userId}/file-entries`
-        : 'drive/file-entries';
+    queryFn: async ({pageParam = 1}) => {
+      try {
+        const queryParams = {
+          ...params,
+          page: pageParam,
+        };
+        
+        // Use user-specific endpoint when userId is provided
+        const endpoint = params.userId != null
+          ? `drive/users/${params.userId}/file-entries`
+          : 'drive/file-entries';
 
-      return apiClient
-        .get(endpoint, {
+        const response = await apiClient.get<EntriesPaginationResponse>(endpoint, {
           params: queryParams,
-        })
-        .then(response => response.data);
+        });
+
+        // Ensure response has the expected structure
+        if (!response.data) {
+          throw new Error('Invalid response structure');
+        }
+
+        // Validate response data structure
+        if (!Array.isArray(response.data.data)) {
+          throw new Error('Invalid data array in response');
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching entries:', error);
+        // Return a valid pagination structure even in case of error
+        return {
+          data: [],
+          current_page: pageParam,
+          last_page: pageParam,
+          per_page: params.perPage || 50,
+          from: 0,
+          to: 0,
+          total: 0,
+        };
+      }
     },
     initialPageParam: 1,
     getNextPageParam: lastResponse => {
-      const currentPage = lastResponse.current_page;
-      if (!hasNextPage(lastResponse)) {
+      if (!lastResponse || !hasNextPage(lastResponse)) {
         return undefined;
       }
-      return currentPage + 1;
+      return lastResponse.current_page + 1;
     },
     enabled: !isDisabledInSearch,
     gcTime: 0,
@@ -96,6 +117,8 @@ export function usePaginatedEntries(options: {userId?: number} = {}) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 30000, // Consider data fresh for 30 seconds
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 
   // Update active folder if needed
