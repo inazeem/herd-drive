@@ -38,5 +38,5 @@ Homestead.yaml
 .env
 data.ms
 
-# Build files
-/public/build
+# Browser Tools
+browser-tools-mcp/
